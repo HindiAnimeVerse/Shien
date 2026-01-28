@@ -244,26 +244,31 @@ async def main():
     asyncio.create_task(site.start())
     logging.info(f"Health check server started on port {port}")
 
+    # Network stability delay
+    logging.info("Waiting 5 seconds for network to stabilize...")
+    await asyncio.sleep(5)
+
     # Start monitoring in background
     asyncio.create_task(monitor_task())
     
-    # Run bot polling
-    try:
-        logging.info("Starting bot polling...")
-        await dp.start_polling(bot)
-    finally:
-        # Proper cleanup
-        logging.info("Closing sessions...")
-        await client.close()
-        await bot.close()
+    # Run bot polling with retry
+    retry_count = 0
+    while retry_count < 10:
+        try:
+            logging.info("Starting bot polling...")
+            await dp.start_polling(bot)
+            break
+        except Exception as e:
+            retry_count += 1
+            logging.error(f"Polling failed (Attempt {retry_count}): {e}")
+            await asyncio.sleep(10)
+    
+    # Final cleanup
+    logging.info("Closing sessions...")
+    await client.close()
+    await bot.session.close()
 
 if __name__ == "__main__":
-    try:
-        import uvloop
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-    except ImportError:
-        pass
-    
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
