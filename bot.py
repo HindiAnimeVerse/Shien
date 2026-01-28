@@ -232,6 +232,18 @@ async def monitor_task():
             await asyncio.sleep(2)
 
 async def main():
+    # Start a dummy web server for Hugging Face health checks
+    port = int(os.getenv("PORT", 7860))
+    from aiohttp import web
+    async def handle(request): return web.Response(text="BOT_ACTIVE")
+    app = web.Application()
+    app.add_routes([web.get('/', handle)])
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    asyncio.create_task(site.start())
+    logging.info(f"Health check server started on port {port}")
+
     # Start monitoring in background
     asyncio.create_task(monitor_task())
     
